@@ -1,0 +1,9 @@
+llm:
+  model: ""
+  api_base: ""
+  api_key: ""
+
+subscriptions:
+  - name: "arxiv.cs.AI"
+    url: "https://rss.arxiv.org/rss/cs.AI"
+    interval: 20
