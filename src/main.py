@@ -1,6 +1,7 @@
 import os
 import uuid
 import time
+import logging
 import schedule
 import feedparser
 from concurrent.futures import ThreadPoolExecutor
@@ -40,27 +41,35 @@ class NewsBot:
             self.thread_pool.submit(job, *args, **kwargs)
 
         def pending_message(title: str, message: str):
-            print(f"SEND MESSAGE: '{title}'")
+            logging.info(f"send message: '{title}'")
 
         def process_subscription(subscription: Config.Subscription):
-            print(f"PROCESS SUBSCRIPTION: {subscription.name}")
-            feed = feedparser.parse(subscription.url)
-            if feed.entries:
-                path = f"output/{subscription.name}/"
-                os.makedirs(path, exist_ok=True)
-                for entry in feed.entries[:1]:
-                    message = ""
-                    message += f"# {entry["title"]}\n\n"
-                    message += f"AUTHORS: {entry["author"]}\n\n"
-                    message += f"LINK: {entry["link"]}\n\n"
-                    message += f"## SUMMARY\n\n{entry["summary"]}\n\n"
+            logging.info(f"process subscription: {subscription.name}")
+            try:
+                feed = feedparser.parse(subscription.url)
+            except Exception as e:
+                logging.warning(f"fail to parse url from [{subscription.name}], exception: {e}")
+            else:
+                if feed.entries:
+                    path = f"output/{subscription.name}/"
+                    os.makedirs(path, exist_ok=True)
+                    for entry in feed.entries[:1]:
+                        message = ""
+                        message += f"# {entry["title"]}\n\n"
+                        message += f"AUTHORS: {entry["author"]}\n\n"
+                        message += f"LINK: {entry["link"]}\n\n"
+                        message += f"## SUMMARY\n\n{entry["summary"]}\n\n"
 
-                    file_name = path + f"{str(uuid.uuid4())}.md"
-                    with open(file_name, "w") as file:
-                        file.write(message)
-                        print(f"SAVE MESSAGE: {file_name}")
+                        file_name = path + f"{str(uuid.uuid4())}.md"
+                        with open(file_name, "w") as file:
+                            file.write(message)
+                            logging.info(f"save to file: {file_name}")
                     
-                    thread_job(pending_message, entry["id"], message)
+                        thread_job(pending_message, entry["id"], message)
+                elif feed.bozo:
+                    logging.warning(f"fail to parse url from [{subscription.name}], message: {feed.bozo_exception}")
+
+        logging.info(f"running...")
 
         for subscription in self.config.subscriptions:
             schedule.every(subscription.interval).minutes.do(thread_job, process_subscription, subscription)
@@ -69,14 +78,32 @@ class NewsBot:
 
         while True:
             schedule.run_pending()
+            time.sleep(5)
 
-            try:
-                time.sleep(5)
-            except KeyboardInterrupt as e:
-                break
-        
+    def shutdown(self):
+        schedule.clear()
         self.thread_pool.shutdown(cancel_futures=True)
 
 if __name__ == "__main__":
-    bot = NewsBot()
-    bot.run()
+    from datetime import datetime
+    os.makedirs("logs", exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(levelname)s]%(asctime)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(
+                f"logs/{datetime.now().strftime("%Y%m%d-%H.%M.%S")}.log",
+                encoding="utf-8",
+            )
+        ],
+    )
+
+    try:
+        bot = NewsBot()
+        bot.run()
+        bot.shutdown()
+    except KeyboardInterrupt:
+        logging.info("stop because user interrupt")
+    except Exception as e:
+        logging.exception(e)

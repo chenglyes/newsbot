@@ -1,5 +1,7 @@
 .vs*/
-.venv/
-output/
+.env*/
+.venv*/
+log*/
+output*/
 
-
+.env*

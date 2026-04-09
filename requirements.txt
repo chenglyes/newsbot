@@ -1,3 +1,4 @@
+logging
 pyyaml
 schedule
 feedparser
