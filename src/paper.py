@@ -3,8 +3,9 @@ from datetime import datetime
 
 @dataclass
 class Paper:
+    id: str
     category: str
-    date: datetime
+    published: str
     title: str = ""
     summary: str = ""
     author: str = ""

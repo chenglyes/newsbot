@@ -1,12 +1,12 @@
 import os
-import uuid
 import time
 import logging
 import schedule
-import feedparser
 from concurrent.futures import ThreadPoolExecutor
-from llm import LLMClient
 from paper import Paper
+from subscription import Subscription
+from fetcher import Fetcher
+from llm import LLMClient
 
 class Config:
     class LLM:
@@ -37,57 +37,38 @@ class NewsBot:
         self.config = Config()
         self.config.load("configs/config.yaml")
         self.thread_pool = ThreadPoolExecutor(8)
+        self.fetcher = Fetcher()
         self.llm = LLMClient(
             model=self.config.llm.model,
             api_base=self.config.llm.api_base,
             api_key=self.config.llm.api_key,
         )
+
+    def process_paper(self, paper: Paper):
+        message = paper.to_markdown()
+        import re
+        file_name = re.sub(r'[<>:"/\\|?*]', "-", paper.id)
+        file_path = f"output/{paper.category}/{file_name}.md"
+        with open(file_path, "w") as file:
+            file.write(message)
+        logging.info(f"save to file: {file_path}")
+
+    def process_subscription(self, subscription):
+        logging.info(f"process subscription: {subscription.name}")
+        path = f"output/{subscription.name}/"
+        os.makedirs(path, exist_ok=True)
+        papers = self.fetcher.fectch(subscription.name, subscription.url)
+        logging.info(f"fetched {len(papers)} papers")
+        for paper in papers:
+            self.thread_pool.submit(lambda: self.process_paper(paper))
     
     def run(self):
-        def thread_job(job, *args, **kwargs):
-            self.thread_pool.submit(job, *args, **kwargs)
-
-        def pending_message(title: str, message: str):
-            logging.info(f"send message: '{title}'")
-
-        def process_subscription(subscription: Config.Subscription):
-            logging.info(f"process subscription: {subscription.name}")
-            path = f"output/{subscription.name}/"
-            os.makedirs(path, exist_ok=True)
-            try:
-                feed = feedparser.parse(subscription.url)
-            except Exception as e:
-                logging.warning(f"fail to parse url from [{subscription.name}], exception: {e}")
-            else:
-                if feed.entries:
-                    for entry in feed.entries[:1]:
-                        paper = Paper(
-                            category=subscription.name,
-                            date=datetime.now(),
-                            link=str(entry["link"]),
-                            title=str(entry["title"]),
-                            summary=str(entry["summary"]),
-                            author=str(entry["author"]),
-                        )
-
-                        message = paper.to_markdown()
-
-                        file_name = path + f"{str(uuid.uuid4())}.md"
-                        with open(file_name, "w") as file:
-                            file.write(message)
-                            logging.info(f"save to file: {file_name}")
-                    
-                        thread_job(pending_message, entry["id"], message)
-                elif feed.bozo:
-                    logging.warning(f"fail to parse url from [{subscription.name}], message: {feed.bozo_exception}")
-
         logging.info(f"running...")
-
         for subscription in self.config.subscriptions:
-            schedule.every(subscription.interval).minutes.do(thread_job, process_subscription, subscription)
-
+            schedule.every(subscription.interval).minutes.do(
+                lambda: self.thread_pool.submit(
+                    lambda: self.process_subscription(subscription)))
         schedule.run_all()
-
         while True:
             schedule.run_pending()
             time.sleep(5)
