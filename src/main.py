@@ -5,6 +5,8 @@ import logging
 import schedule
 import feedparser
 from concurrent.futures import ThreadPoolExecutor
+from llm import LLMClient
+from paper import Paper
 
 class Config:
     class LLM:
@@ -35,6 +37,11 @@ class NewsBot:
         self.config = Config()
         self.config.load("configs/config.yaml")
         self.thread_pool = ThreadPoolExecutor(8)
+        self.llm = LLMClient(
+            model=self.config.llm.model,
+            api_base=self.config.llm.api_base,
+            api_key=self.config.llm.api_key,
+        )
     
     def run(self):
         def thread_job(job, *args, **kwargs):
@@ -45,20 +52,25 @@ class NewsBot:
 
         def process_subscription(subscription: Config.Subscription):
             logging.info(f"process subscription: {subscription.name}")
+            path = f"output/{subscription.name}/"
+            os.makedirs(path, exist_ok=True)
             try:
                 feed = feedparser.parse(subscription.url)
             except Exception as e:
                 logging.warning(f"fail to parse url from [{subscription.name}], exception: {e}")
             else:
                 if feed.entries:
-                    path = f"output/{subscription.name}/"
-                    os.makedirs(path, exist_ok=True)
                     for entry in feed.entries[:1]:
-                        message = ""
-                        message += f"# {entry["title"]}\n\n"
-                        message += f"AUTHORS: {entry["author"]}\n\n"
-                        message += f"LINK: {entry["link"]}\n\n"
-                        message += f"## SUMMARY\n\n{entry["summary"]}\n\n"
+                        paper = Paper(
+                            category=subscription.name,
+                            date=datetime.now(),
+                            link=str(entry["link"]),
+                            title=str(entry["title"]),
+                            summary=str(entry["summary"]),
+                            author=str(entry["author"]),
+                        )
+
+                        message = paper.to_markdown()
 
                         file_name = path + f"{str(uuid.uuid4())}.md"
                         with open(file_name, "w") as file:
@@ -99,11 +111,15 @@ if __name__ == "__main__":
         ],
     )
 
+    from dotenv import load_dotenv
+    load_dotenv()
+
     try:
         bot = NewsBot()
         bot.run()
-        bot.shutdown()
     except KeyboardInterrupt:
         logging.info("stop because user interrupt")
     except Exception as e:
         logging.exception(e)
+    else:
+        bot.shutdown()
