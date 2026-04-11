@@ -1,10 +1,13 @@
 .vs*/
 .env*/
 .venv*/
-log*/
-cache*/
-output*/
+
+.kilo/
 
 __pycache__/
 
 .env*
+
+logs/
+cache/
+output/

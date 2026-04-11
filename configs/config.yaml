@@ -1,8 +1,10 @@
 llm:
-  model: "Pro/zai-org/GLM-4.7"
-  api_base: "https://api.siliconflow.cn"
+  model: "gemma4:e4b"
+  api_base: "https://:11434/v1/"
+  api_key: "ollama"
 
 subscriptions:
   - name: "arxiv.cs.AI"
-    url: "https://rss.arxiv.org/rss/cs.AI"
+    # url: "https://rss.arxiv.org/rss/cs.AI"
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.AI&max_results=5"
     interval: 20

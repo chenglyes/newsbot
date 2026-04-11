@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import logging
 import schedule
 from concurrent.futures import ThreadPoolExecutor
@@ -9,6 +10,20 @@ from fetcher import Fetcher
 from llm import LLMClient
 
 class NewsBot:
+    TRANSLATION_PROMPT = """请将以下论文信息翻译成中文，并以JSON格式返回。要求：
+- title: 论文标题翻译
+- summary: 摘要翻译
+
+JSON格式：
+{
+    "title": "...",
+    "summary": "..."
+}
+
+论文信息：
+- 标题: {title}
+- 摘要: {summary}"""
+
     def __init__(self) -> None:
         self.config = load_yaml_config("configs/config.yaml")
         self.thread_pool = ThreadPoolExecutor(8)
@@ -19,20 +34,43 @@ class NewsBot:
             api_key=self.config.llm.api_key,
         )
 
+    def translate_paper(self, paper: Paper) -> Paper:
+        logging.info(f"translate paper '{paper.id}'")
+        prompt = self.TRANSLATION_PROMPT.replace("{title}", paper.title).replace("{summary}", paper.summary)
+        messages = [{"role": "user", "content": prompt}]
+        #logging.debug(f"before llm chat")
+        response = self.llm.chat(messages)
+        logging.debug(f"after llm chat, response={response}")
+        if not response:
+            logging.warning(f"no llm response from translate paper '{paper.id}'")
+            return paper
+        try:
+            start = response.find("{")
+            end = response.rfind("}") + 1
+            json_str = response[start:end]
+            title, summary = json.loads(json_str)
+            paper.title_translation = title
+            paper.summary_translation = summary
+            return paper
+        except (json.JSONDecodeError, ValueError):
+            logging.warning(f"fail to parse llm response from translate paper '{paper.id}'")
+            return paper
+
     def process_paper(self, paper: Paper):
-        message = paper.to_markdown()
+        paper = self.translate_paper(paper)
+        markdown = paper.to_markdown()
         import re
         file_name = re.sub(r'[<>:"/\\|?*]', "-", paper.id)
         file_path = f"output/{paper.category}/{file_name}.md"
         with open(file_path, "w") as file:
-            file.write(message)
+            file.write(markdown)
         logging.info(f"save to file: {file_path}")
 
     def process_subscription(self, subscription: Subscription):
-        logging.info(f"process subscription: {subscription.name}")
+        logging.info(f"process subscription '{subscription.name}'")
         path = f"output/{subscription.name}/"
         os.makedirs(path, exist_ok=True)
-        papers = self.fetcher.fectch(subscription.name, subscription.url)
+        papers = self.fetcher.fectch(subscription.name, subscription.url, max_entries=1)
         logging.info(f"fetched {len(papers)} papers")
         for paper in papers:
             self.thread_pool.submit(lambda: self.process_paper(paper))

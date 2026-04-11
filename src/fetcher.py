@@ -6,7 +6,7 @@ class Fetcher:
     def __init__(self) -> None:
         pass
 
-    def fectch(self, name: str, url: str, retry: int = 0) -> list[Paper]:
+    def fectch(self, name: str, url: str, *, max_entries: int | None = None, retry: int = 0) -> list[Paper]:
         logging.info(f"fetch url from '{name}'")
         papers = []
         try:
@@ -15,7 +15,9 @@ class Fetcher:
             logging.warning(f"fail to parse url from '{name}', exception: {e}")
         else:
             if feed.entries:
-                for entry in feed.entries[:5]:
+                if not max_entries:
+                    max_entries = len(feed.entries)
+                for entry in feed.entries[:max_entries]:
                     paper = Paper(
                         category=name,
                         id=str(entry.id),

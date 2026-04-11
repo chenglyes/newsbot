@@ -21,7 +21,7 @@ class LLMClient:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
-            stream=False,
+            #stream=False,
         )
         return response.choices[0].message.content
     
