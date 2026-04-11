@@ -3,39 +3,14 @@ import time
 import logging
 import schedule
 from concurrent.futures import ThreadPoolExecutor
+from configs import Subscription, load_yaml_config
 from paper import Paper
-from subscription import Subscription
 from fetcher import Fetcher
 from llm import LLMClient
 
-class Config:
-    class LLM:
-        def __init__(self, model: str = "", api_base: str = "", api_key: str = "") -> None:
-            self.model = model
-            self.api_base = api_base
-            self.api_key = api_key
-
-    class Subscription:
-        def __init__(self, name: str = "unknow", url: str = "", interval: int = 20) -> None:
-            self.name = name
-            self.url = url
-            self.interval = interval
-
-    def __init__(self) -> None:
-        self.llm = self.LLM()
-        self.subscriptions = list[self.Subscription]()
-
-    def load(self, path: str):
-        with open(path, "r", encoding="utf-8") as file:
-            from yaml import safe_load
-            config = safe_load(file)
-            self.llm = self.LLM(**config["llm"])
-            self.subscriptions = [self.Subscription(**subscriptions) for subscriptions in config["subscriptions"]]
-
 class NewsBot:
     def __init__(self) -> None:
-        self.config = Config()
-        self.config.load("configs/config.yaml")
+        self.config = load_yaml_config("configs/config.yaml")
         self.thread_pool = ThreadPoolExecutor(8)
         self.fetcher = Fetcher()
         self.llm = LLMClient(
@@ -53,7 +28,7 @@ class NewsBot:
             file.write(message)
         logging.info(f"save to file: {file_path}")
 
-    def process_subscription(self, subscription):
+    def process_subscription(self, subscription: Subscription):
         logging.info(f"process subscription: {subscription.name}")
         path = f"output/{subscription.name}/"
         os.makedirs(path, exist_ok=True)
@@ -88,13 +63,12 @@ if __name__ == "__main__":
             logging.FileHandler(
                 f"logs/{datetime.now().strftime("%Y%m%d-%H.%M.%S")}.log",
                 encoding="utf-8",
-            )
+            ),
         ],
     )
-
     from dotenv import load_dotenv
-    load_dotenv()
-
+    if load_dotenv():
+        logging.info("use dotenv")
     try:
         bot = NewsBot()
         bot.run()

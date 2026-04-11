@@ -2,7 +2,7 @@ import os
 import openai
 
 class LLMClient:
-    def __init__(self, model: str, *,
+    def __init__(self, model: str | None = None, *,
                  api_base: str | None = None, api_key: str | None = None, timeout: float = 60) -> None:
         if not model:
             model = os.getenv("OPENAI_DEFAULT_MODEL", "")
