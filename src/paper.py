@@ -16,12 +16,16 @@ class Paper:
     label_translation: str | None = None
 
     def to_markdown(self) -> str:
-        md = f"# {self.title}\n\n"
+        md = ""
         if self.title_translation:
             md += f"# {self.title_translation}\n\n"
-        md += f"AUTHORS: {self.author}\n\n"
-        md += f"LINK: {self.link}\n\n"
-        md += f"## SUMMARY\n\n{self.summary}\n\n"
+            md += f"> {self.title}\n\n"
+        else:
+            md += f"# {self.title}\n\n"
+        md += f"链接：{self.link}\n\n"
+        md += f"作者：{self.author}\n\n"
+        md += f"发布日期：{self.published}\n\n"
         if self.summary_translation:
             md += f"## 摘要\n\n{self.summary_translation}\n\n"
+        md += f"## Summary\n\n{self.summary}\n\n"
         return md
