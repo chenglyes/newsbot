@@ -13,7 +13,7 @@ from cache import Cache
 
 class NewsBot:
     def __init__(self) -> None:
-        self.config = load_yaml_config("configs/config.yaml")
+        self.config = load_yaml_config("configs.yaml")
         if self.config.thread_num and self.config.thread_num > 1:
             self.thread_pool = ThreadPoolExecutor(self.config.thread_num)
         else:

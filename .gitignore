@@ -4,9 +4,12 @@
 
 .kilo/
 
+build/
+dist/
+*.spec
 __pycache__/
 
-.env*
+.env
 
 logs/
 caches/
