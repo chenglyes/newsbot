@@ -6,8 +6,9 @@ import schedule
 from concurrent.futures import ThreadPoolExecutor
 from configs import Subscription, load_yaml_config
 from paper import Paper
-from fetcher import Fetcher
 from llm import LLMClient
+from fetcher import Fetcher
+from senders import create_sender
 
 class NewsBot:
     def __init__(self) -> None:
@@ -16,12 +17,13 @@ class NewsBot:
             self.thread_pool = ThreadPoolExecutor(self.config.thread_num)
         else:
             self.thread_pool = None
-        self.fetcher = Fetcher()
         self.llm = LLMClient(
             model=self.config.llm.model,
             api_base=self.config.llm.api_base,
             api_key=self.config.llm.api_key,
         )
+        self.fetcher = Fetcher()
+        self.senders = [create_sender(**data) for data in self.config.senders]
 
     def translate_paper(self, paper: Paper) -> Paper:
         logging.info(f"translate paper '{paper.id}'")
@@ -51,16 +53,8 @@ class NewsBot:
 
     def process_paper(self, paper: Paper):
         paper = self.translate_paper(paper)
-        file_name = paper.id
-        file_name = file_name.replace("http://", "")
-        file_name = file_name.replace("https://", "")
-        import re
-        file_name = re.sub(r'[<>:"/\\|?*]', "-", file_name)
-        file_path = f"output/{paper.category}/{file_name}.md"
-        with open(file_path, "w", encoding="utf-8") as file:
-            markdown = paper.to_markdown()
-            file.write(markdown)
-        logging.info(f"save to file: {file_path}")
+        for sender in self.senders:
+            self._run_job(lambda: sender.send(paper))
 
     def process_subscription(self, subscription: Subscription):
         logging.info(f"process subscription '{subscription.name}'")

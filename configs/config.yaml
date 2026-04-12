@@ -9,5 +9,10 @@ subscriptions:
   - name: "arxiv.cs.AI"
     # url: "https://rss.arxiv.org/rss/cs.AI"
     url: "http://export.arxiv.org/api/query?search_query=cat:cs.AI&max_results=10"
-    max_results: 10
+    max_results: 3
     interval: 30
+
+senders:
+  - name: "save_to_file"
+    path: "output"
+  - name: "server_chan"

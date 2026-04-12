@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime
 
 @dataclass
 class Paper:
@@ -22,7 +21,7 @@ class Paper:
             md += f"> {self.title}\n\n"
         else:
             md += f"# {self.title}\n\n"
-        md += f"链接：{self.link}\n\n"
+        md += f"链接：<{self.link}>\n\n"
         md += f"作者：{self.author}\n\n"
         md += f"发布日期：{self.published}\n\n"
         if self.summary_translation:

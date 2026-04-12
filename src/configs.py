@@ -19,6 +19,7 @@ class Config:
     thread_num: int | None = None
     llm: LLMConfig = field(default_factory=LLMConfig)
     subscriptions: list[Subscription] = field(default_factory=list[Subscription])
+    senders: list[dict] = field(default_factory=list)
 
 def load_yaml_config(path: str) -> Config:
     config = Config()
@@ -27,4 +28,6 @@ def load_yaml_config(path: str) -> Config:
         config.thread_num = data["thread_num"]
         config.llm = LLMConfig(**data["llm"])
         config.subscriptions = [Subscription(**subscriptions) for subscriptions in data["subscriptions"]]
+        config.senders = [dict(**sender) for sender in data["senders"]]
     return config
+    
