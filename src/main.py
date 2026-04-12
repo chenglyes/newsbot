@@ -9,6 +9,7 @@ from paper import Paper
 from llm import LLMClient
 from fetcher import Fetcher
 from senders import create_sender
+from cache import Cache
 
 class NewsBot:
     def __init__(self) -> None:
@@ -24,6 +25,7 @@ class NewsBot:
         )
         self.fetcher = Fetcher()
         self.senders = [create_sender(**data) for data in self.config.senders]
+        self.cache = Cache("caches/cache_send.db")
 
     def translate_paper(self, paper: Paper) -> Paper:
         logging.info(f"translate paper '{paper.id}'")
@@ -52,18 +54,20 @@ class NewsBot:
             return paper
 
     def process_paper(self, paper: Paper):
+        if self.cache.is_sent(paper.id):
+            logging.info(f"paper '{paper.id}' already sent, skip")
+            return
         paper = self.translate_paper(paper)
         for sender in self.senders:
             self._run_job(lambda: sender.send(paper))
+        self.cache.mark_sent(paper.id)
 
     def process_subscription(self, subscription: Subscription):
         logging.info(f"process subscription '{subscription.name}'")
-        path = f"output/{subscription.name}/"
-        os.makedirs(path, exist_ok=True)
         papers = self.fetcher.fectch(
             subscription.name,
             subscription.url,
-            max_results=subscription.max_results
+            max_results=subscription.max_results,
         )
         logging.info(f"fetched {len(papers)} papers")
         for paper in papers:
@@ -71,6 +75,9 @@ class NewsBot:
     
     def run(self):
         logging.info(f"running...")
+        schedule.every().day.at("03:00").do(
+            lambda: self._run_job(lambda: self.cache.cleanup(30))
+        )
         for subscription in self.config.subscriptions:
             schedule.every(subscription.interval).minutes.do(
                 lambda: self._run_job(

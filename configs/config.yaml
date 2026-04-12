@@ -14,7 +14,7 @@ subscriptions:
 
 senders:
   - name: "save_to_file"
-    path: "output"
+    path: "outputs"
   - name: "telegram_bot"
     # bot_token: "your bot token" or TELEGRAM_BOT_TOKEN
     # chat_id: "your char id" or TELEGRAM_CHAT_ID
